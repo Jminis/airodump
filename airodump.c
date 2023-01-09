@@ -38,6 +38,7 @@ struct ieee80211_beacon_header{ //beacon 헤더 구조체 일부
 
 struct ieee80211_temp_header{ //주요 정보 구조체
 	u_int8_t bssid[6];
+	int pwr;
 	int beacons;
 	u_int8_t tag_length;
 	unsigned char essid[32];
@@ -60,6 +61,7 @@ bool save_beacon(struct ieee80211_temp_header *temp_header){ //beacon 헤더 저
 	struct ieee80211_temp_header *curr = main_header;
 	while(curr->next != NULL){
 		if(memcmp(curr->bssid,temp_header->bssid,6)==0){
+			curr->pwr = temp_header->pwr;
 			curr->beacons++;
 			return false;
 		}
@@ -69,6 +71,7 @@ bool save_beacon(struct ieee80211_temp_header *temp_header){ //beacon 헤더 저
 	memcpy(curr ->bssid,temp_header->bssid,6);
 	memcpy(curr ->essid,temp_header->essid,temp_header->tag_length);
 	curr->tag_length = temp_header->tag_length;
+	curr->pwr = temp_header->pwr;
 	curr->beacons = 1;
 	curr->next = malloc(sizeof(struct ieee80211_temp_header));
 	curr->next->next = NULL;
@@ -90,14 +93,14 @@ void print_info(){ //출력 함수
 
 	system("clear");
 	printf("=====================================================\n");
-	printf("BSSID\t\t\tbeacons\t\tSSID\n");
+	printf("BSSID\t\t\tPWR   \tbeacons\t\tSSID\n");
 	while(curr->next != NULL){
 		for(int i=0;i<6;i++){
 			printf("%02x",curr->bssid[i]);
 			if(i!=5)
 				printf(":");
 		}
-		printf(" \t%d\t\t%s\n",curr->beacons,curr->essid);
+		printf(" \t%d\t%d\t\t%s\n",(curr->pwr)-0xff+0x1,curr->beacons,curr->essid);
 		curr = curr->next;
 	}
 
@@ -111,6 +114,7 @@ bool parse_info(const u_char *packet){ //주요 정보 파싱 함수
 	beacon_header = (struct ieee80211_beacon_header *)(packet+24);
 
 	memcpy(temp_header->bssid,beacon_header->bss_id,6); //BSSID parsing
+	temp_header->pwr = *(packet+18); //PWR parsing
 	memcpy(temp_header->essid,packet+24+38,beacon_header->tag_length); //ESSID parsing
 	temp_header->tag_length = beacon_header->tag_length;
 	save_beacon(temp_header);
